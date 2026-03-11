@@ -23,7 +23,13 @@ export default function Login({ onAuth }) {
         if (error) throw error
         onAuth(data.session)
       } else {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: 'https://habit-tracker-ai-pi.vercel.app'
+            }
+          })
         if (error) throw error
         setMessage('Check your email to confirm your account!')
       }
