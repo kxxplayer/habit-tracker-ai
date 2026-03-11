@@ -41,14 +41,15 @@ class Habit(HabitBase):
 # USER SCHEMAS
 # -----------------
 class UserBase(BaseModel):
-    name: str
-    email: str
+    name: Optional[str] = None
+    email: Optional[str] = None
 
 class UserCreate(UserBase):
     pass
 
 class User(UserBase):
     id: int
+    auth_id: Optional[str] = None
     habits: List[Habit] = []
 
     class Config:

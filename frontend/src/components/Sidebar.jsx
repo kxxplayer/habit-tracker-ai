@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
-import { LayoutDashboard, Flame, BarChart2, Settings, Star } from 'lucide-react'
+import { LayoutDashboard, Flame, BarChart2, Settings, Star, LogOut, User } from 'lucide-react'
 
-export default function Sidebar({ habitsCount, completedToday }) {
+export default function Sidebar({ habitsCount, completedToday, userEmail, onLogout }) {
   const navItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', active: true },
     { icon: <BarChart2 size={20} />, label: 'Stats' },
@@ -27,7 +27,21 @@ export default function Sidebar({ habitsCount, completedToday }) {
         flexShrink: 0,
       }}
     >
-      {/* Logo */}
+      {/* User profile */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.75rem',
+        background: 'var(--bg-primary)', borderRadius: '10px', marginBottom: '0.5rem' }}>
+        <div style={{ background: 'var(--accent-light)', borderRadius: '50%', width: '32px', height: '32px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <User size={16} color="var(--accent-primary)" />
+        </div>
+        <div style={{ overflow: 'hidden' }}>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-primary)', fontWeight: 600,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {userEmail || 'User'}
+          </p>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Habit Tracker</p>
+        </div>
+      </div>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
           <div style={{ background: 'var(--accent-primary)', borderRadius: '10px', padding: '6px', display: 'flex' }}>
@@ -70,12 +84,30 @@ export default function Sidebar({ habitsCount, completedToday }) {
         ))}
       </nav>
 
-      {/* Bottom badge */}
-      <div style={{ marginTop: 'auto', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderRadius: '12px', padding: '1rem', textAlign: 'center' }}>
-        <Star size={20} color="#fcd34d" style={{ marginBottom: '0.5rem' }} />
-        <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>AI Coach Active</p>
-        <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.2rem' }}>Powered by Gemini</p>
+      {/* Bottom section */}
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderRadius: '12px', padding: '1rem', textAlign: 'center' }}>
+          <Star size={20} color="#fcd34d" style={{ marginBottom: '0.5rem' }} />
+          <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)', fontWeight: 500 }}>AI Coach Active</p>
+          <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.2rem' }}>Powered by Gemini</p>
+        </div>
+        <button
+          onClick={onLogout}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+            background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)',
+            borderRadius: '10px', padding: '0.65rem', cursor: 'pointer',
+            fontFamily: 'Outfit, sans-serif', fontSize: '0.875rem', fontWeight: 500,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => { e.target.style.borderColor = '#ef4444'; e.target.style.color = '#ef4444' }}
+          onMouseLeave={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.color = 'var(--text-secondary)' }}
+        >
+          <LogOut size={16} />
+          Log Out
+        </button>
       </div>
     </motion.aside>
   )
 }
+

@@ -1,110 +1,103 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-import models, schemas, database
-import agent # Import our specific AI agent logic
+import models, schemas, database, agent
+from auth import verify_token
 
-# 1. Create the database tables
-# This line tells SQLAlchemy to look at models.py and create the actual tables in the SQLite file.
+# Create tables
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(
     title="Habit Tracker AI API",
     description="Backend for the AI-powered habit tracking app",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -----------------
-# API ENDPOINTS (ROUTES)
-# -----------------
+# -----------------------------------------
+# Helper: get or create public.users record
+# -----------------------------------------
+def get_or_create_db_user(supabase_uid: str, db: Session) -> models.User:
+    """Given a Supabase auth UID, look up (or create) the matching public.users row."""
+    user = db.query(models.User).filter(models.User.auth_id == supabase_uid).first()
+    if not user:
+        user = models.User(name="Habit Tracker User", email="", auth_id=supabase_uid)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
 
+# -----------------
+# ROOT
+# -----------------
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Habit Tracker AI API. Go to /docs to test it!"}
+    return {"message": "Habit Tracker AI API v2.0 - Auth enabled 🔐"}
 
-# --- USER ROUTES ---
-
-# CREATE a User (POST request)
-@app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
-    # Check if user already exists
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Create new database model object
-    new_user = models.User(name=user.name, email=user.email)
-    
-    # Add it to the session and save (commit) to the database
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user) # Refresh to get the generated ID
-    
-    return new_user
-
-# READ all Users (GET request)
-@app.get("/users/", response_model=list[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
-    users = db.query(models.User).offset(skip).limit(limit).all()
-    return users
-
-# --- HABIT ROUTES ---
-
-# CREATE a Habit
-@app.post("/users/{user_id}/habits/", response_model=schemas.Habit)
-def create_habit_for_user(
-    user_id: int, habit: schemas.HabitCreate, db: Session = Depends(database.get_db)
+# -----------------
+# USER ROUTES
+# -----------------
+@app.get("/me", response_model=schemas.User)
+def get_me(
+    db: Session = Depends(database.get_db),
+    supabase_uid: str = Depends(verify_token)
 ):
-    # Create the habit, linked to the user_id from the URL
-    db_habit = models.Habit(**habit.model_dump(), owner_id=user_id)
+    """Return (or auto-create) the current user's DB record."""
+    return get_or_create_db_user(supabase_uid, db)
+
+# -----------------
+# HABIT ROUTES
+# -----------------
+@app.post("/habits/", response_model=schemas.Habit)
+def create_habit(
+    habit: schemas.HabitCreate,
+    db: Session = Depends(database.get_db),
+    supabase_uid: str = Depends(verify_token)
+):
+    user = get_or_create_db_user(supabase_uid, db)
+    db_habit = models.Habit(**habit.model_dump(), owner_id=user.id)
     db.add(db_habit)
     db.commit()
     db.refresh(db_habit)
     return db_habit
 
-# READ Habits for a User
-@app.get("/users/{user_id}/habits/", response_model=list[schemas.Habit])
-def read_habits(user_id: int, db: Session = Depends(database.get_db)):
-    # Find habits where owner_id matches the user requested
-    habits = db.query(models.Habit).filter(models.Habit.owner_id == user_id).all()
-    return habits
-
-# --- AI & HABIT LOG ROUTES ---
-
-@app.post("/users/{user_id}/habits/{habit_id}/log", response_model=schemas.HabitLog)
-def complete_habit(
-    user_id: int, habit_id: int, log_data: schemas.HabitLogCreate, db: Session = Depends(database.get_db)
+@app.get("/habits/", response_model=list[schemas.Habit])
+def read_habits(
+    db: Session = Depends(database.get_db),
+    supabase_uid: str = Depends(verify_token)
 ):
-    # 1. Verification
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    habit = db.query(models.Habit).filter(models.Habit.id == habit_id).first()
-    
-    if not user or not habit:
-        raise HTTPException(status_code=404, detail="User or Habit not found")
-        
-    if habit.owner_id != user.id:
-        raise HTTPException(status_code=403, detail="Habit does not belong to user")
-        
-    # 2. Call our AI Agent (Langchain)
+    user = get_or_create_db_user(supabase_uid, db)
+    return db.query(models.Habit).filter(models.Habit.owner_id == user.id).all()
+
+# -----------------
+# AI LOG ROUTES
+# -----------------
+@app.post("/habits/{habit_id}/log", response_model=schemas.HabitLog)
+def complete_habit(
+    habit_id: int,
+    db: Session = Depends(database.get_db),
+    supabase_uid: str = Depends(verify_token)
+):
+    user = get_or_create_db_user(supabase_uid, db)
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.owner_id == user.id
+    ).first()
+
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found or not yours")
+
     ai_note = agent.get_motivational_note(user_name=user.name, habit_title=habit.title)
-    
-    # 3. Create the Database Log with the AI Note
-    new_log = models.HabitLog(
-        habit_id=habit.id,
-        notes=ai_note # Saving the AI's message into our database!
-    )
-    
+
+    new_log = models.HabitLog(habit_id=habit.id, notes=ai_note)
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
-    
     return new_log
-

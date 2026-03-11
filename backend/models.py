@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -8,7 +9,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
+    email = Column(String, nullable=True, index=True)
+    auth_id = Column(UUID(as_uuid=True), unique=True, nullable=True, index=True)
     
     # A user can have many habits
     habits = relationship("Habit", back_populates="owner")

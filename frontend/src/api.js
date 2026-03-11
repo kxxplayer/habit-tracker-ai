@@ -1,43 +1,36 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://habit-tracker-ai-13ly.onrender.com';
 
-export const api = axios.create({
-  baseURL: API_URL,
+// Axios instance that automatically attaches the Supabase JWT token
+export const api = axios.create({ baseURL: API_URL });
+
+api.interceptors.request.use(async (config) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return config;
 });
 
-// Since we don't have login, let's hardcode user ID 1 for now (or auto-create one if missing)
-export const getOrCreateUser = async () => {
-  try {
-    // Try to get users
-    const res = await api.get('/users/');
-    const users = res.data;
-    if (users.length > 0) {
-      return users[0];
-    }
-    // Create one if it doesn't exist
-    const createRes = await api.post('/users/', {
-      name: "Habitify User",
-      email: "user@habitify.ai"
-    });
-    return createRes.data;
-  } catch (error) {
-    console.error("Error fetching/creating user", error);
-    return null;
-  }
-};
-
-export const fetchHabits = async (userId) => {
-  const res = await api.get(`/users/${userId}/habits/`);
+// Get current user (auto-created on backend from JWT)
+export const getMe = async () => {
+  const res = await api.get('/me');
   return res.data;
 };
 
-export const createHabit = async (userId, habitData) => {
-  const res = await api.post(`/users/${userId}/habits/`, habitData);
+export const fetchHabits = async () => {
+  const res = await api.get('/habits/');
   return res.data;
 };
 
-export const logHabitComplete = async (userId, habitId) => {
-  const res = await api.post(`/users/${userId}/habits/${habitId}/log`, { notes: "" });
+export const createHabit = async (habitData) => {
+  const res = await api.post('/habits/', habitData);
+  return res.data;
+};
+
+export const logHabitComplete = async (habitId) => {
+  const res = await api.post(`/habits/${habitId}/log`, {});
   return res.data;
 };
