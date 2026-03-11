@@ -40,11 +40,17 @@ function App() {
     }
     const loadData = async () => {
       setLoading(true)
-      const dbUser = await getMe()
-      setUser(dbUser)
-      const dbHabits = await fetchHabits()
-      setHabits(dbHabits)
-      setLoading(false)
+      try {
+        const dbUser = await getMe()
+        setUser(dbUser)
+        const dbHabits = await fetchHabits()
+        setHabits(dbHabits)
+      } catch (err) {
+        console.error('Failed to load data:', err)
+        // If backend isn't ready yet, still show the dashboard (empty state)
+      } finally {
+        setLoading(false)
+      }
     }
     loadData()
   }, [session])
