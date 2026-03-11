@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:8000'; // FastAPI default port
+const API_URL = import.meta.env.VITE_API_URL || 'https://habit-tracker-ai-13ly.onrender.com';
 
 export const api = axios.create({
   baseURL: API_URL,
