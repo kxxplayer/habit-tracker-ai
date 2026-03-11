@@ -1,33 +1,33 @@
 import os
-import jwt
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from supabase import create_client
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+# Initialize Supabase client for auth verification
+supabase = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_ANON_KEY")
+)
 
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     """
-    Dependency that extracts and verifies the Supabase JWT token.
+    Verify token by calling Supabase's auth.get_user() API.
+    This is the recommended approach - no JWT secret format issues.
     Returns the Supabase user ID (UUID string).
     """
     token = credentials.credentials
     try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            options={"verify_aud": False}  # Supabase doesn't use standard audience
-        )
-        user_id: str = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token: no user ID")
-        return user_id
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+        response = supabase.auth.get_user(token)
+        user = response.user
+        if not user or not user.id:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        return str(user.id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
