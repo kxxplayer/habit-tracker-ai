@@ -1,0 +1,36 @@
+# Python / Backend
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment variables (NEVER commit these!)
+.env
+
+# Database files (use Supabase cloud instead)
+*.db
+*.sqlite
+
+# Logs
+*.log
+
+# Node / Frontend
+node_modules/
+dist/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
