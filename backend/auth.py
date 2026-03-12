@@ -17,8 +17,7 @@ security = HTTPBearer()
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     """
     Verify token by calling Supabase's auth.get_user() API.
-    This is the recommended approach - no JWT secret format issues.
-    Returns the Supabase user ID (UUID string).
+    Returns a tuple of (user_id, email).
     """
     token = credentials.credentials
     try:
@@ -26,7 +25,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         user = response.user
         if not user or not user.id:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
-        return str(user.id)
+        return {"id": str(user.id), "email": user.email or ""}
     except HTTPException:
         raise
     except Exception as e:

@@ -24,11 +24,15 @@ app.add_middleware(
 # -----------------------------------------
 # Helper: get or create public.users record
 # -----------------------------------------
-def get_or_create_db_user(supabase_uid: str, db: Session) -> models.User:
+def get_or_create_db_user(supabase_uid: str, email: str, db: Session) -> models.User:
     """Given a Supabase auth UID, look up (or create) the matching public.users row."""
     user = db.query(models.User).filter(models.User.auth_id == supabase_uid).first()
     if not user:
-        user = models.User(name="Habit Tracker User", email="", auth_id=supabase_uid)
+        user = models.User(
+            name=email.split("@")[0] if email else "User",
+            email=email or None,
+            auth_id=supabase_uid
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -47,10 +51,9 @@ def read_root():
 @app.get("/me", response_model=schemas.User)
 def get_me(
     db: Session = Depends(database.get_db),
-    supabase_uid: str = Depends(verify_token)
+    auth_info: dict = Depends(verify_token)
 ):
-    """Return (or auto-create) the current user's DB record."""
-    return get_or_create_db_user(supabase_uid, db)
+    return get_or_create_db_user(auth_info["id"], auth_info["email"], db)
 
 # -----------------
 # HABIT ROUTES
@@ -59,9 +62,9 @@ def get_me(
 def create_habit(
     habit: schemas.HabitCreate,
     db: Session = Depends(database.get_db),
-    supabase_uid: str = Depends(verify_token)
+    auth_info: dict = Depends(verify_token)
 ):
-    user = get_or_create_db_user(supabase_uid, db)
+    user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
     db_habit = models.Habit(**habit.model_dump(), owner_id=user.id)
     db.add(db_habit)
     db.commit()
@@ -71,9 +74,9 @@ def create_habit(
 @app.get("/habits/", response_model=list[schemas.Habit])
 def read_habits(
     db: Session = Depends(database.get_db),
-    supabase_uid: str = Depends(verify_token)
+    auth_info: dict = Depends(verify_token)
 ):
-    user = get_or_create_db_user(supabase_uid, db)
+    user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
     return db.query(models.Habit).filter(models.Habit.owner_id == user.id).all()
 
 # -----------------
@@ -83,9 +86,9 @@ def read_habits(
 def complete_habit(
     habit_id: int,
     db: Session = Depends(database.get_db),
-    supabase_uid: str = Depends(verify_token)
+    auth_info: dict = Depends(verify_token)
 ):
-    user = get_or_create_db_user(supabase_uid, db)
+    user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
     habit = db.query(models.Habit).filter(
         models.Habit.id == habit_id,
         models.Habit.owner_id == user.id
