@@ -8,3 +8,4 @@ sqlalchemy>=2.0.29
 psycopg2-binary>=2.9.9
 supabase>=2.4.0
 PyJWT>=2.8.0
+mcp[sse]>=1.2.0

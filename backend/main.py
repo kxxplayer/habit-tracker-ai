@@ -26,6 +26,63 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# -----------------
+# MCP SERVER SETUP
+# -----------------
+from starlette.requests import Request
+from mcp.server.sse import SseServerTransport
+from mcp_server import create_mcp_server, mcp_user_id
+
+mcp_app = create_mcp_server()
+sse_transport = SseServerTransport("/mcp/messages")
+
+@app.get("/mcp/sse")
+async def handle_mcp_sse(request: Request, db: Session = Depends(database.get_db)):
+    token = request.query_params.get("token")
+    if not token:
+        # Check header
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required in 'token' query param or Bearer header")
+
+    try:
+        auth_info = verify_token(token)
+        user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+    # Set context for this connection
+    mcp_user_id.set(user.id)
+
+    async with sse_transport.connect_sse(request.scope, request.receive, request.send) as (read_stream, write_stream):
+        await mcp_app.run(
+            read_stream,
+            write_stream,
+            mcp_app.create_initialization_options()
+        )
+
+@app.post("/mcp/messages")
+async def handle_mcp_messages(request: Request):
+    await sse_transport.handle_post_message(request.scope, request.receive, request.send)
+
+@app.get("/mcp/config")
+def get_mcp_config():
+    """Returns the JSON config for Claude Desktop / AI Clients."""
+    return {
+        "message": "To connect this app to Claude Desktop, add this to your config:",
+        "config_snippet": {
+            "mcpServers": {
+                "habitify": {
+                    "url": "https://habit-tracker-ai-13ly.onrender.com/mcp/sse?token=YOUR_SUPABASE_JWT"
+                }
+            }
+        },
+        "instructions": "Replace YOUR_SUPABASE_JWT with your actual token from the web app's developer bar (localStorage) or by inspecting requests."
+    }
+
 # -----------------------------------------
 # Helper: get or create public.users record
 # -----------------------------------------
