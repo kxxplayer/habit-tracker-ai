@@ -93,7 +93,7 @@ function App() {
       const log = await logHabitComplete(habitId)
       setAiNote({ habitId, text: log.notes, loading: false })
       toast.success('Habit completed! 🔥', { style: { background: '#222630', color: 'white', border: '1px solid rgba(255,255,255,0.08)' } })
-      setTimeout(() => setAiNote(null), 6000)
+      // Removed auto-hide setTimeout so the message stays visible
     } catch {
       toast.error('Something went wrong')
       setAiNote(null)
@@ -173,7 +173,7 @@ function App() {
           )}
         </AnimatePresence>
 
-        <motion.div layout style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <AnimatePresence>
             {habits.length === 0 && !showForm && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem 2rem' }}>
@@ -183,7 +183,13 @@ function App() {
               </motion.div>
             )}
             {habits.map(habit => (
-              <HabitCard key={habit.id} habit={habit} onComplete={handleComplete} aiNote={aiNote} />
+              <HabitCard 
+                key={habit.id} 
+                habit={habit} 
+                onComplete={handleComplete} 
+                aiNote={aiNote}
+                onDismissAiNote={() => setAiNote(null)}
+              />
             ))}
           </AnimatePresence>
         </motion.div>
