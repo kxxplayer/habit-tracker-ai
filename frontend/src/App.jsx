@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'react-hot-toast'
 import { PlusCircle, X, Loader2 } from 'lucide-react'
 import { supabase } from './supabase'
-import { getMe, fetchHabits, createHabit, logHabitComplete } from './api'
+import { getMe, fetchHabits, createHabit, logHabitComplete, setApiToken } from './api'
 import Sidebar from './components/Sidebar'
 import HabitCard from './components/HabitCard'
 import StatsChart from './components/StatsChart'
@@ -25,9 +25,12 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      if (session?.access_token) setApiToken(session.access_token)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session?.access_token) setApiToken(session.access_token)
+      else setApiToken(null)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -41,13 +44,18 @@ function App() {
     const loadData = async () => {
       setLoading(true)
       try {
-        const dbUser = await getMe()
-        setUser(dbUser)
+        console.log("Loading data for session:", session?.user?.email);
         const dbHabits = await fetchHabits()
         setHabits(dbHabits)
       } catch (err) {
-        console.error('Failed to load data:', err)
-        // If backend isn't ready yet, still show the dashboard (empty state)
+        console.error('Failed to load habits:', err)
+      }
+      
+      try {
+        const dbUser = await getMe()
+        setUser(dbUser)
+      } catch (err) {
+        console.error('Failed to load me:', err)
       } finally {
         setLoading(false)
       }
