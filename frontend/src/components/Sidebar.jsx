@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
 import { LayoutDashboard, Flame, BarChart2, Settings, Star, LogOut, User } from 'lucide-react'
 
-export default function Sidebar({ habitsCount, completedToday, userEmail, onLogout }) {
+export default function Sidebar({ habitsCount, completedToday, userEmail, onLogout, activeTab, onTabChange }) {
   const navItems = [
-    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', active: true },
-    { icon: <BarChart2 size={20} />, label: 'Stats' },
-    { icon: <Settings size={20} />, label: 'Settings' },
+    { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+    { id: 'stats', icon: <BarChart2 size={20} />, label: 'Stats' },
+    { id: 'settings', icon: <Settings size={20} />, label: 'Settings' },
   ]
 
   return (
@@ -68,14 +68,15 @@ export default function Sidebar({ habitsCount, completedToday, userEmail, onLogo
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
         {navItems.map((item) => (
           <div
-            key={item.label}
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
             style={{
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               padding: '0.7rem 1rem', borderRadius: '10px', cursor: 'pointer',
-              background: item.active ? 'var(--accent-light)' : 'transparent',
-              color: item.active ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              background: activeTab === item.id ? 'var(--accent-light)' : 'transparent',
+              color: activeTab === item.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
               transition: 'all 0.2s',
-              fontWeight: item.active ? 600 : 400,
+              fontWeight: activeTab === item.id ? 600 : 400,
             }}
           >
             {item.icon}

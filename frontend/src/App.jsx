@@ -7,6 +7,8 @@ import { getMe, fetchHabits, createHabit, logHabitComplete, deleteHabit, setApiT
 import Sidebar from './components/Sidebar'
 import HabitCard from './components/HabitCard'
 import StatsChart from './components/StatsChart'
+import Stats from './components/Stats'
+import Settings from './components/Settings'
 import Login from './components/Login'
 import './index.css'
 
@@ -14,6 +16,7 @@ function App() {
   const [session, setSession] = useState(undefined) // undefined = loading, null = logged out
   const [user, setUser] = useState(null)
   const [habits, setHabits] = useState([])
+  const [activeTab, setActiveTab] = useState('dashboard')
   // initialLoading only tracks the first ever load — not tab switches
   const [initialLoading, setInitialLoading] = useState(true)
   const [aiNote, setAiNote] = useState(null)
@@ -145,82 +148,125 @@ function App() {
 
   // Dashboard
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <Toaster position="top-right" />
       <Sidebar
         habitsCount={habits.length}
         completedToday={completedToday}
         userEmail={session.user?.email}
         onLogout={handleLogout}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
       />
 
-      <main style={{ flex: 1, padding: '2.5rem', overflowY: 'auto' }}>
+      <main style={{ flex: 1, padding: '2.5rem', overflowY: 'auto', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}
         >
           <div>
-            <h1 style={{ fontSize: '2rem', fontWeight: 700 }} className="text-gradient">Dashboard</h1>
+            <h1 style={{ fontSize: '2rem', fontWeight: 700 }} className="text-gradient">
+              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </h1>
             <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="btn" onClick={() => setShowForm(!showForm)}>
-            {showForm ? <X size={18} /> : <PlusCircle size={18} />}
-            <span>{showForm ? 'Cancel' : 'New Habit'}</span>
-          </motion.button>
+          
+          {activeTab === 'dashboard' && (
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} className="btn" onClick={() => setShowForm(!showForm)}>
+              {showForm ? <X size={18} /> : <PlusCircle size={18} />}
+              <span>{showForm ? 'Cancel' : 'New Habit'}</span>
+            </motion.button>
+          )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
-          <StatsChart habits={habits} />
-        </motion.div>
-
-        <AnimatePresence>
-          {showForm && (
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'dashboard' && (
             <motion.div
-              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-              animate={{ opacity: 1, height: 'auto', marginBottom: '2rem' }}
-              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-              className="card"
-              style={{ border: '1px solid var(--accent-primary)', overflow: 'hidden' }}
+              key="dashboard"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
             >
-              <h3 style={{ marginBottom: '1.25rem', fontSize: '1.1rem', fontWeight: 600 }}>Create New Habit</h3>
-              <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <input className="input-base" placeholder="Habit title (e.g., Read 10 pages)" value={newTitle} onChange={e => setNewTitle(e.target.value)} required autoFocus />
-                <input className="input-base" placeholder="Short description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                  <button type="submit" className="btn" disabled={creating}>
-                    {creating ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
-                    <span>{creating ? 'Creating...' : 'Create Habit'}</span>
-                  </button>
-                </div>
-              </form>
+              <StatsChart habits={habits} />
+              
+              <AnimatePresence>
+                {showForm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginBottom: '2rem' }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    className="card"
+                    style={{ border: '1px solid var(--accent-primary)', overflow: 'hidden' }}
+                  >
+                    <h3 style={{ marginBottom: '1.25rem', fontSize: '1.1rem', fontWeight: 600 }}>Create New Habit</h3>
+                    <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <input className="input-base" placeholder="Habit title (e.g., Read 10 pages)" value={newTitle} onChange={e => setNewTitle(e.target.value)} required autoFocus />
+                      <input className="input-base" placeholder="Short description (optional)" value={newDesc} onChange={e => setNewDesc(e.target.value)} />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                        <button type="submit" className="btn" disabled={creating}>
+                          {creating ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
+                          <span>{creating ? 'Creating...' : 'Create Habit'}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <AnimatePresence>
+                  {habits.length === 0 && !showForm && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🌱</div>
+                      <h3 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>No habits yet</h3>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Click "New Habit" to plant your first one!</p>
+                    </motion.div>
+                  )}
+                  {habits.map(habit => (
+                    <HabitCard
+                      key={habit.id}
+                      habit={habit}
+                      onComplete={handleComplete}
+                      onDelete={handleDelete}
+                      aiNote={aiNote}
+                      onDismissAiNote={() => setAiNote(null)}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Stats habits={habits} />
+            </motion.div>
+          )}
+
+          {activeTab === 'settings' && (
+            <motion.div
+              key="settings"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Settings userEmail={session.user?.email} />
             </motion.div>
           )}
         </AnimatePresence>
-
-        <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <AnimatePresence>
-            {habits.length === 0 && !showForm && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🌱</div>
-                <h3 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>No habits yet</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Click "New Habit" to plant your first one!</p>
-              </motion.div>
-            )}
-            {habits.map(habit => (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                onComplete={handleComplete}
-                onDelete={handleDelete}
-                aiNote={aiNote}
-                onDismissAiNote={() => setAiNote(null)}
-              />
-            ))}
-          </AnimatePresence>
-        </motion.div>
       </main>
     </div>
   )
