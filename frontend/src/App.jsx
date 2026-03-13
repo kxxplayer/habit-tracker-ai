@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'react-hot-toast'
 import { PlusCircle, X, Loader2 } from 'lucide-react'
 import { supabase } from './supabase'
-import { getMe, fetchHabits, createHabit, logHabitComplete, setApiToken } from './api'
+import { getMe, fetchHabits, createHabit, logHabitComplete, deleteHabit, setApiToken } from './api'
 import Sidebar from './components/Sidebar'
 import HabitCard from './components/HabitCard'
 import StatsChart from './components/StatsChart'
@@ -14,7 +14,8 @@ function App() {
   const [session, setSession] = useState(undefined) // undefined = loading, null = logged out
   const [user, setUser] = useState(null)
   const [habits, setHabits] = useState([])
-  const [loading, setLoading] = useState(true)
+  // initialLoading only tracks the first ever load — not tab switches
+  const [initialLoading, setInitialLoading] = useState(true)
   const [aiNote, setAiNote] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -35,38 +36,43 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // When logged in, load data
+  // Only run the initial data load once when session first becomes available
   useEffect(() => {
+    if (session === undefined) return // still resolving
     if (!session) {
-      setLoading(false)
+      setInitialLoading(false)
+      return
+    }
+    // Skip if we already have habits (tab switch)
+    if (habits.length > 0) {
+      setInitialLoading(false)
       return
     }
     const loadData = async () => {
-      setLoading(true)
       try {
-        console.log("Loading data for session:", session?.user?.email);
         const dbHabits = await fetchHabits()
         setHabits(dbHabits)
       } catch (err) {
         console.error('Failed to load habits:', err)
       }
-      
       try {
         const dbUser = await getMe()
         setUser(dbUser)
       } catch (err) {
         console.error('Failed to load me:', err)
       } finally {
-        setLoading(false)
+        setInitialLoading(false)
       }
     }
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setUser(null)
     setHabits([])
+    setInitialLoading(true)
     toast.success('Logged out!', { style: { background: '#222630', color: 'white', border: '1px solid rgba(255,255,255,0.08)' } })
   }
 
@@ -91,17 +97,38 @@ function App() {
     setAiNote({ habitId, text: '', loading: true })
     try {
       const log = await logHabitComplete(habitId)
+      // Optimistically update the habit log in state so the weekly tracker updates instantly
+      setHabits(prev => prev.map(h =>
+        h.id === habitId
+          ? { ...h, logs: [...(h.logs || []), log] }
+          : h
+      ))
       setAiNote({ habitId, text: log.notes, loading: false })
       toast.success('Habit completed! 🔥', { style: { background: '#222630', color: 'white', border: '1px solid rgba(255,255,255,0.08)' } })
-      // Removed auto-hide setTimeout so the message stays visible
     } catch {
       toast.error('Something went wrong')
       setAiNote(null)
     }
   }
 
-  // Auth loading (checking session)
-  if (session === undefined || (session && loading)) {
+  const handleDelete = useCallback(async (habitId) => {
+    try {
+      await deleteHabit(habitId)
+      setHabits(prev => prev.filter(h => h.id !== habitId))
+      toast.success('Habit deleted', { style: { background: '#222630', color: 'white', border: '1px solid rgba(255,255,255,0.08)' } })
+    } catch {
+      toast.error('Failed to delete habit')
+    }
+  }, [])
+
+  // Compute how many habits were completed today
+  const today = new Date().toLocaleDateString()
+  const completedToday = habits.filter(h =>
+    (h.logs || []).some(log => new Date(log.completed_at).toLocaleDateString() === today)
+  ).length
+
+  // Auth loading (checking session for the first time only)
+  if (session === undefined || initialLoading) {
     return (
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
@@ -122,12 +149,12 @@ function App() {
       <Toaster position="top-right" />
       <Sidebar
         habitsCount={habits.length}
-        completedToday={0}
+        completedToday={completedToday}
         userEmail={session.user?.email}
         onLogout={handleLogout}
       />
 
-      <main style={{ flex: 1, padding: '2.5rem', maxWidth: '960px', overflowY: 'auto' }}>
+      <main style={{ flex: 1, padding: '2.5rem', overflowY: 'auto' }}>
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -176,17 +203,18 @@ function App() {
         <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <AnimatePresence>
             {habits.length === 0 && !showForm && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem 2rem' }}>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', padding: '4rem 2rem' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🌱</div>
                 <h3 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>No habits yet</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Click "New Habit" to plant your first one!</p>
               </motion.div>
             )}
             {habits.map(habit => (
-              <HabitCard 
-                key={habit.id} 
-                habit={habit} 
-                onComplete={handleComplete} 
+              <HabitCard
+                key={habit.id}
+                habit={habit}
+                onComplete={handleComplete}
+                onDelete={handleDelete}
                 aiNote={aiNote}
                 onDismissAiNote={() => setAiNote(null)}
               />

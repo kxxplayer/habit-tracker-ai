@@ -47,3 +47,7 @@ export const logHabitComplete = async (habitId) => {
   const res = await api.post(`/habits/${habitId}/log`, {});
   return res.data;
 };
+
+export const deleteHabit = async (habitId) => {
+  await api.delete(`/habits/${habitId}`);
+};

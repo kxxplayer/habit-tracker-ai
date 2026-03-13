@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Circle, Flame, Sparkles, Loader2, Target, X, CheckCircle2 } from 'lucide-react'
+import { Circle, Flame, Sparkles, Loader2, Target, X, CheckCircle2, Trash2 } from 'lucide-react'
 
 // Helper: Get array of the last 7 days (including today)
 function getLast7Days() {
@@ -34,7 +34,7 @@ function getHabitIcon(title) {
   return '⭐'
 }
 
-export default function HabitCard({ habit, onComplete, aiNote, onDismissAiNote }) {
+export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismissAiNote }) {
   const isThisNote = aiNote && aiNote.habitId === habit.id
   const icon = getHabitIcon(habit.title)
   const last7Days = getLast7Days();
@@ -134,17 +134,44 @@ export default function HabitCard({ habit, onComplete, aiNote, onDismissAiNote }
         </div>
       </div>
 
-      {/* Right section: Complete button */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => onComplete(habit.id)}
-        className="btn btn-secondary"
-        style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}
-      >
-        <Target size={18} />
-        <span>Complete</span>
-      </motion.button>
+      {/* Right section: action buttons */}
+      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => onComplete(habit.id)}
+          className="btn btn-secondary"
+          style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}
+        >
+          <Target size={18} />
+          <span>Complete</span>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.05, backgroundColor: 'rgba(239,68,68,0.15)' }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            if (window.confirm(`Delete "${habit.title}"? This cannot be undone.`)) {
+              onDelete(habit.id)
+            }
+          }}
+          title="Delete habit"
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: 'var(--radius)',
+            padding: '0.75rem',
+            cursor: 'pointer',
+            color: '#ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <Trash2 size={18} />
+        </motion.button>
+      </div>
 
       {/* AI Note Overlay */}
       <AnimatePresence>

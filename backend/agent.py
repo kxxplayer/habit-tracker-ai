@@ -38,4 +38,4 @@ def get_motivational_note(user_name: str, habit_title: str) -> str:
         return response.content
     except Exception as e:
         print(f"AI Error: {e}")
-        return "Great job! Keep up the good work! (Add your GOOGLE_API_KEY to see the AI coach!)"
+        return "Great job! You're building an unstoppable streak. Keep it going! 💪"

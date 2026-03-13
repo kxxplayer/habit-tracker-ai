@@ -83,6 +83,23 @@ def read_habits(
     user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
     return db.query(models.Habit).filter(models.Habit.owner_id == user.id).all()
 
+@app.delete("/habits/{habit_id}", status_code=204)
+def delete_habit(
+    habit_id: int,
+    db: Session = Depends(database.get_db),
+    auth_info: dict = Depends(verify_token)
+):
+    user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.owner_id == user.id
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found or not yours")
+    db.delete(habit)
+    db.commit()
+    return
+
 # -----------------
 # AI LOG ROUTES
 # -----------------
@@ -108,3 +125,4 @@ def complete_habit(
     db.commit()
     db.refresh(new_log)
     return new_log
+
