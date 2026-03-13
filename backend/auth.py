@@ -29,4 +29,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_msg": str(e),
+            "token_head": token[:15] + "..." if token else "None"
+        }
+        raise HTTPException(status_code=401, detail=error_details)
