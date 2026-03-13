@@ -51,3 +51,7 @@ export const logHabitComplete = async (habitId) => {
 export const deleteHabit = async (habitId) => {
   await api.delete(`/habits/${habitId}`);
 };
+
+export const undoHabitComplete = async (habitId) => {
+  await api.delete(`/habits/${habitId}/log`);
+};

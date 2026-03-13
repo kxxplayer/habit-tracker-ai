@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from datetime import datetime
 import models, schemas, database, agent
 from auth import verify_token
 
@@ -125,4 +126,29 @@ def complete_habit(
     db.commit()
     db.refresh(new_log)
     return new_log
+@app.delete("/habits/{habit_id}/log", status_code=204)
+def undo_habit_completion(
+    habit_id: int,
+    db: Session = Depends(database.get_db),
+    auth_info: dict = Depends(verify_token)
+):
+    """Remove the most recent log entry for this habit created today."""
+    from datetime import date
+    user = get_or_create_db_user(auth_info["id"], auth_info["email"], db)
+    habit = db.query(models.Habit).filter(
+        models.Habit.id == habit_id,
+        models.Habit.owner_id == user.id
+    ).first()
+    if not habit:
+        raise HTTPException(status_code=404, detail="Habit not found or not yours")
 
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    log = db.query(models.HabitLog).filter(
+        models.HabitLog.habit_id == habit_id,
+        models.HabitLog.completed_at >= today_start
+    ).order_by(models.HabitLog.completed_at.desc()).first()
+
+    if log:
+        db.delete(log)
+        db.commit()
+    return

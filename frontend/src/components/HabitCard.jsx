@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Circle, Flame, Sparkles, Loader2, Target, X, CheckCircle2, Trash2 } from 'lucide-react'
+import { Circle, Flame, CheckCircle2, Target, Trash2, RotateCcw } from 'lucide-react'
 
 // Helper: Get array of the last 7 days (including today)
 function getLast7Days() {
@@ -15,9 +16,14 @@ function getLast7Days() {
 // Helper: Check if a log exists for a specific date
 function isCompletedOnDate(logs, dateObj) {
   if (!logs) return false;
-  // Use local time zone for string comparison
   const dateStr = dateObj.toLocaleDateString();
   return logs.some(log => new Date(log.completed_at).toLocaleDateString() === dateStr);
+}
+
+// Check if completed today
+function isCompletedToday(logs) {
+  if (!logs || logs.length === 0) return false;
+  return isCompletedOnDate(logs, new Date());
 }
 
 // Pick an icon based on habit title
@@ -34,10 +40,24 @@ function getHabitIcon(title) {
   return '⭐'
 }
 
-export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismissAiNote }) {
-  const isThisNote = aiNote && aiNote.habitId === habit.id
+export default function HabitCard({ habit, onComplete, onUndo, onDelete }) {
+  const [loading, setLoading] = useState(false)
   const icon = getHabitIcon(habit.title)
-  const last7Days = getLast7Days();
+  const last7Days = getLast7Days()
+  const done = isCompletedToday(habit.logs)
+
+  const handleToggle = async () => {
+    setLoading(true)
+    try {
+      if (done) {
+        await onUndo(habit.id)
+      } else {
+        await onComplete(habit.id)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <motion.div
@@ -45,11 +65,11 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      whileHover={{ y: -4, boxShadow: '0 8px 32px rgba(99,102,241,0.2)' }}
-      transition={{ duration: 0.3 }}
+      whileHover={{ y: -2, boxShadow: done ? '0 8px 32px rgba(16,185,129,0.15)' : '0 8px 32px rgba(99,102,241,0.15)' }}
+      transition={{ duration: 0.25 }}
       style={{
         background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
+        border: done ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)',
         padding: '1.5rem',
         display: 'flex',
@@ -60,13 +80,17 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
         overflow: 'hidden',
         cursor: 'default',
         gap: '2rem',
-        width: '100%'
+        width: '100%',
+        transition: 'border-color 0.3s ease'
       }}
     >
-      {/* Subtle left gradient accent */}
+      {/* Left accent stripe — changes color when done */}
       <div style={{
         position: 'absolute', top: 0, bottom: 0, left: 0, width: '4px',
-        background: 'linear-gradient(180deg, var(--accent-primary), #8b5cf6)',
+        background: done
+          ? 'linear-gradient(180deg, #10b981, #34d399)'
+          : 'linear-gradient(180deg, var(--accent-primary), #8b5cf6)',
+        transition: 'background 0.3s ease'
       }} />
 
       {/* Left section: Icon + Info */}
@@ -81,7 +105,7 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
               {habit.description}
             </p>
           )}
-          
+
           {/* Streak indicator */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.3rem',
@@ -103,15 +127,15 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
         <div style={{ display: 'flex', gap: '0.4rem' }}>
           {last7Days.map((date, i) => {
             const isCompleted = isCompletedOnDate(habit.logs, date);
-            const dayName = date.toLocaleDateString('en-US', { weekday: 'narrow' }); // S, M, T, W, T, F, S
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'narrow' });
             const isToday = i === 6;
-            
+
             return (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
-                <span style={{ fontSize: '0.7rem', color: isToday ? 'var(--accent-primary)' : 'var(--text-muted)', fontWeight: isToday ? 700 : 500 }}>
+                <span style={{ fontSize: '0.7rem', color: isToday ? (done ? '#10b981' : 'var(--accent-primary)') : 'var(--text-muted)', fontWeight: isToday ? 700 : 500 }}>
                   {dayName}
                 </span>
-                <div 
+                <div
                   style={{
                     width: '32px',
                     height: '32px',
@@ -119,10 +143,10 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: isCompleted ? 'rgba(99,102,241,0.15)' : 'var(--bg-card-hover)',
-                    border: isCompleted ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                    color: isCompleted ? 'var(--accent-primary)' : 'var(--text-muted)',
-                    transition: 'all 0.2s ease'
+                    background: isCompleted ? (isToday && done ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)') : 'var(--bg-card-hover)',
+                    border: isCompleted ? (isToday && done ? '2px solid #10b981' : '2px solid var(--accent-primary)') : '2px solid transparent',
+                    color: isCompleted ? (isToday && done ? '#10b981' : 'var(--accent-primary)') : 'var(--text-muted)',
+                    transition: 'all 0.3s ease'
                   }}
                   title={date.toLocaleDateString()}
                 >
@@ -134,18 +158,77 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
         </div>
       </div>
 
-      {/* Right section: action buttons */}
+      {/* Right section: Toggle button + Delete */}
       <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => onComplete(habit.id)}
-          className="btn btn-secondary"
-          style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap' }}
+          onClick={handleToggle}
+          disabled={loading}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            borderRadius: 'var(--radius)',
+            border: 'none',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontFamily: 'Outfit, sans-serif',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            background: done ? 'rgba(16,185,129,0.15)' : 'rgba(99,102,241,0.15)',
+            color: done ? '#10b981' : 'var(--accent-primary)',
+            border: done ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(99,102,241,0.3)',
+            transition: 'all 0.3s ease',
+            opacity: loading ? 0.7 : 1,
+          }}
         >
-          <Target size={18} />
-          <span>Complete</span>
+          <AnimatePresence mode="wait">
+            {done ? (
+              <motion.span key="done" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <CheckCircle2 size={16} /> Completed ✓
+              </motion.span>
+            ) : (
+              <motion.span key="todo" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Target size={16} /> Complete
+              </motion.span>
+            )}
+          </AnimatePresence>
         </motion.button>
+
+        {/* Undo label — shown below the button when completed */}
+        <AnimatePresence>
+          {done && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleToggle}
+              disabled={loading}
+              title="Mark as not completed"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: 'var(--radius)',
+                padding: '0.6rem 0.9rem',
+                cursor: 'pointer',
+                color: '#ef4444',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                fontFamily: 'Outfit, sans-serif',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <RotateCcw size={14} /> Not Done?
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         <motion.button
           whileHover={{ scale: 1.05, backgroundColor: 'rgba(239,68,68,0.15)' }}
@@ -158,7 +241,7 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
           title="Delete habit"
           style={{
             background: 'transparent',
-            border: '1px solid rgba(239,68,68,0.3)',
+            border: '1px solid rgba(239,68,68,0.25)',
             borderRadius: 'var(--radius)',
             padding: '0.75rem',
             cursor: 'pointer',
@@ -172,48 +255,6 @@ export default function HabitCard({ habit, onComplete, onDelete, aiNote, onDismi
           <Trash2 size={18} />
         </motion.button>
       </div>
-
-      {/* AI Note Overlay */}
-      <AnimatePresence>
-        {isThisNote && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.97), rgba(139,92,246,0.97))',
-              backdropFilter: 'blur(8px)',
-              borderRadius: 'var(--radius-lg)',
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center',
-              textAlign: 'center', padding: '1.5rem',
-            }}
-          >
-            {aiNote.loading ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                <Loader2 size={32} color="white" />
-              </motion.div>
-            ) : (
-              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} style={{ position: 'relative', width: '100%' }}>
-                <button 
-                  onClick={onDismissAiNote}
-                  style={{ position: 'absolute', top: '-1rem', right: '0', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer' }}
-                >
-                  <X size={24} />
-                </button>
-                <Sparkles size={32} color="#fcd34d" style={{ marginBottom: '0.75rem', margin: '0 auto' }} />
-                <p style={{ color: 'white', fontWeight: 500, fontSize: '1rem', lineHeight: 1.5, maxWidth: '80%', margin: '0 auto' }}>
-                  {aiNote.text}
-                </p>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', marginTop: '0.75rem' }}>
-                  — Your AI Coach
-                </p>
-              </motion.div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   )
 }

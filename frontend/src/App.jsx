@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'react-hot-toast'
 import { PlusCircle, X, Loader2 } from 'lucide-react'
 import { supabase } from './supabase'
-import { getMe, fetchHabits, createHabit, logHabitComplete, deleteHabit, setApiToken } from './api'
+import { getMe, fetchHabits, createHabit, logHabitComplete, deleteHabit, undoHabitComplete, setApiToken } from './api'
 import Sidebar from './components/Sidebar'
 import HabitCard from './components/HabitCard'
 import StatsChart from './components/StatsChart'
@@ -19,7 +19,6 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   // initialLoading only tracks the first ever load — not tab switches
   const [initialLoading, setInitialLoading] = useState(true)
-  const [aiNote, setAiNote] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -97,22 +96,35 @@ function App() {
   }
 
   const handleComplete = async (habitId) => {
-    setAiNote({ habitId, text: '', loading: true })
     try {
       const log = await logHabitComplete(habitId)
-      // Optimistically update the habit log in state so the weekly tracker updates instantly
+      // Optimistically update the habit log in state so the weekly tracker and button update instantly
       setHabits(prev => prev.map(h =>
         h.id === habitId
           ? { ...h, logs: [...(h.logs || []), log] }
           : h
       ))
-      setAiNote({ habitId, text: log.notes, loading: false })
       toast.success('Habit completed! 🔥', { style: { background: '#222630', color: 'white', border: '1px solid rgba(255,255,255,0.08)' } })
     } catch {
       toast.error('Something went wrong')
-      setAiNote(null)
     }
   }
+
+  const handleUndo = useCallback(async (habitId) => {
+    try {
+      await undoHabitComplete(habitId)
+      // Remove today's log from local state optimistically
+      const today = new Date().toLocaleDateString()
+      setHabits(prev => prev.map(h =>
+        h.id === habitId
+          ? { ...h, logs: (h.logs || []).filter(log => new Date(log.completed_at).toLocaleDateString() !== today) }
+          : h
+      ))
+      toast('Marked as not completed', { style: { background: '#222630', color: 'white', border: '1px solid rgba(255,255,255,0.08)' } })
+    } catch {
+      toast.error('Something went wrong')
+    }
+  }, [])
 
   const handleDelete = useCallback(async (habitId) => {
     try {
@@ -233,9 +245,8 @@ function App() {
                       key={habit.id}
                       habit={habit}
                       onComplete={handleComplete}
+                      onUndo={handleUndo}
                       onDelete={handleDelete}
-                      aiNote={aiNote}
-                      onDismissAiNote={() => setAiNote(null)}
                     />
                   ))}
                 </AnimatePresence>
